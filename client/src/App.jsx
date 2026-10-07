@@ -1,5 +1,4 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Navbar from './components/Navbar';
 import SOSButton from './components/SOSButton';
@@ -17,7 +16,7 @@ import MechanicJobPage from './pages/MechanicJobPage';
 export default function App() {
   return (
     <AppProvider>
-      <BrowserRouter>
+      <Router>
         <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
           <Navbar />
           
@@ -58,7 +57,7 @@ export default function App() {
             </div>
           </footer>
         </div>
-      </BrowserRouter>
+      </Router>
     </AppProvider>
   );
 }

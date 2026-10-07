@@ -1,11 +1,16 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const defaultHeaders = {
+  'Content-Type': 'application/json',
+  'Bypass-Tunnel-Reminder': 'true'
+};
+
 export async function reportEmergencyApi(payload) {
   const token = localStorage.getItem('resq_token') || 'demo-traveler-token';
   const res = await fetch(`${API_BASE}/emergency/report`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      ...defaultHeaders,
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(payload)
@@ -18,13 +23,17 @@ export async function reportEmergencyApi(payload) {
 }
 
 export async function getEmergencyApi(id) {
-  const res = await fetch(`${API_BASE}/emergency/${id}`);
+  const res = await fetch(`${API_BASE}/emergency/${id}`, {
+    headers: defaultHeaders
+  });
   if (!res.ok) throw new Error('Failed to fetch emergency details');
   return res.json();
 }
 
 export async function getRescueApi(rescueId) {
-  const res = await fetch(`${API_BASE}/rescue/${rescueId}`);
+  const res = await fetch(`${API_BASE}/rescue/${rescueId}`, {
+    headers: defaultHeaders
+  });
   if (!res.ok) throw new Error('Failed to fetch rescue details');
   return res.json();
 }
@@ -32,7 +41,7 @@ export async function getRescueApi(rescueId) {
 export async function updateRescueStatusApi(rescueId, status, failureReason) {
   const res = await fetch(`${API_BASE}/rescue/${rescueId}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: defaultHeaders,
     body: JSON.stringify({ status, failureReason })
   });
   if (!res.ok) {
@@ -44,14 +53,17 @@ export async function updateRescueStatusApi(rescueId, status, failureReason) {
 
 export async function triggerEmergencySOSApi(emergencyId) {
   const res = await fetch(`${API_BASE}/emergency/${emergencyId}/sos`, {
-    method: 'POST'
+    method: 'POST',
+    headers: defaultHeaders
   });
   if (!res.ok) throw new Error('Failed to trigger SOS');
   return res.json();
 }
 
 export async function getRespondersApi() {
-  const res = await fetch(`${API_BASE}/responders`);
+  const res = await fetch(`${API_BASE}/responders`, {
+    headers: defaultHeaders
+  });
   if (!res.ok) throw new Error('Failed to fetch responders');
   return res.json();
 }
@@ -59,7 +71,7 @@ export async function getRespondersApi() {
 export async function updateResponderStateApi(id, updates) {
   const res = await fetch(`${API_BASE}/responders/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: defaultHeaders,
     body: JSON.stringify(updates)
   });
   return res.json();
@@ -68,7 +80,7 @@ export async function updateResponderStateApi(id, updates) {
 export async function registerUserApi(userData) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: defaultHeaders,
     body: JSON.stringify(userData)
   });
   return res.json();
