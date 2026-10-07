@@ -27,10 +27,10 @@ export default function DashboardPage() {
   const [responders, setResponders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Google Maps Key & Provider Selection (Default to Google Maps!)
-  const envKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  // Google Maps Key & Provider Selection
+  const envKey = localStorage.getItem('resq_google_maps_key') || import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
   const [googleKey, setGoogleKey] = useState(envKey);
-  const [mapEngine, setMapEngine] = useState('google');
+  const [mapEngine, setMapEngine] = useState(() => (envKey ? 'google' : 'leaflet'));
   const [showKeyModal, setShowKeyModal] = useState(false);
 
   useEffect(() => {
@@ -168,12 +168,17 @@ export default function DashboardPage() {
 
           {/* Interactive Map Box */}
           <div className="relative h-[360px] rounded-2xl overflow-hidden border border-slate-800">
-            {mapEngine === 'google' && googleKey ? (
+            {mapEngine === 'google' ? (
               <GoogleRadarMap
                 apiKey={googleKey}
                 userLat={coords.lat}
                 userLng={coords.lng}
                 responders={responders}
+                onSwitchToLeaflet={() => setMapEngine('leaflet')}
+                onSaveKey={(k) => {
+                  setGoogleKey(k);
+                  localStorage.setItem('resq_google_maps_key', k);
+                }}
               />
             ) : (
               <MapContainer
@@ -327,6 +332,51 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Key Modal if Google Maps clicked without key */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-[1200] bg-slate-955/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl text-white space-y-4">
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <Key className="w-5 h-5 text-amber-400" />
+              Connect Google Maps API Key
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter your Google Maps JavaScript API key below to enable Google Maps Radar, or keep using OpenStreetMap.
+            </p>
+            <input
+              type="text"
+              value={googleKey}
+              onChange={(e) => setGoogleKey(e.target.value)}
+              placeholder="AIzaSy..."
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (googleKey) {
+                    localStorage.setItem('resq_google_maps_key', googleKey);
+                    setMapEngine('google');
+                    setShowKeyModal(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-xs shadow-lg shadow-blue-600/30"
+              >
+                Apply & Activate
+              </button>
+              <button
+                onClick={() => {
+                  setShowKeyModal(false);
+                  setMapEngine('leaflet');
+                }}
+                className="py-2.5 px-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white text-xs border border-slate-700"
+              >
+                Use Radar Map
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

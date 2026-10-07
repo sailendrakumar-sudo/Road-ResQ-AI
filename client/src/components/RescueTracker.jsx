@@ -41,7 +41,7 @@ export default function RescueTracker({
   initialDistance = 2.4,
   status = 'dispatched'
 }) {
-  const envGoogleKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  const envGoogleKey = localStorage.getItem('resq_google_maps_key') || import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
   const [googleKey, setGoogleKey] = useState(envGoogleKey);
   const [mapEngine, setMapEngine] = useState(() => (envGoogleKey ? 'google' : 'leaflet'));
   const [currentRespPos, setCurrentRespPos] = useState([responderLat, responderLng]);
@@ -76,7 +76,7 @@ export default function RescueTracker({
   return (
     <div className="relative w-full h-[380px] sm:h-[440px] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
       {/* Map Engine View */}
-      {mapEngine === 'google' && googleKey ? (
+      {mapEngine === 'google' ? (
         <GoogleMapComponent
           apiKey={googleKey}
           userLat={userLat}
@@ -86,6 +86,11 @@ export default function RescueTracker({
           responderName={responderName}
           specialization={specialization}
           status={status}
+          onSwitchToLeaflet={() => setMapEngine('leaflet')}
+          onSaveKey={(k) => {
+            setGoogleKey(k);
+            localStorage.setItem('resq_google_maps_key', k);
+          }}
         />
       ) : (
         <MapContainer
@@ -222,6 +227,7 @@ export default function RescueTracker({
               <button
                 onClick={() => {
                   if (googleKey) {
+                    localStorage.setItem('resq_google_maps_key', googleKey);
                     setMapEngine('google');
                     setShowKeyInput(false);
                   }

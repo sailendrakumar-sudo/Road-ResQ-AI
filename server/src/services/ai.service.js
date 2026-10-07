@@ -13,8 +13,8 @@ if (apiKey) {
   }
 }
 
-export const visionModel = 'gemini-1.5-pro';
-export const fastModel = 'gemini-1.5-flash';
+export const visionModel = 'gemini-3.8-flash';
+export const fastModel = 'gemini-3.8-flash';
 
 const SYSTEM_PROMPT = `You are the Road ResQ AI Orchestrator, an expert mechanical diagnostic and safety assessment agent.
 Your core directive is traveler safety. 
@@ -24,6 +24,15 @@ When provided with a text description and/or an image of a roadside emergency:
 3. Calculate a Risk Score (0-100) based on context (night time, vulnerability, traffic, weather).
 4. Provide immediate, actionable safety advice for the stranded traveler.
 You must return ONLY valid, raw JSON adhering strictly to the provided schema. No markdown wrapping.`;
+
+// 3.5s timeout helper so external API never hangs or slows down user dispatch
+function withTimeout(promise, ms = 3500) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`AI generation timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
 
 /**
  * Intelligent multimodal roadside diagnostic analysis
@@ -64,7 +73,7 @@ export async function diagnoseEmergency({
         }
       }
 
-      const response = await aiClient.models.generateContent({
+      const generatePromise = aiClient.models.generateContent({
         model: visionModel,
         contents,
         config: {
@@ -85,15 +94,17 @@ export async function diagnoseEmergency({
         }
       });
 
+      const response = await withTimeout(generatePromise, 3500);
+
       if (response && response.text) {
         const parsed = JSON.parse(response.text);
         return {
           ...parsed,
-          source: 'gemini-1.5-pro'
+          source: 'gemini-ai'
         };
       }
     } catch (apiErr) {
-      console.warn('⚠️ Gemini API call did not succeed, using autonomous heuristic expert engine:', apiErr.message);
+      console.warn('⚠️ Gemini API call note:', apiErr.message, '-> using autonomous heuristic expert engine');
     }
   }
 
@@ -145,8 +156,8 @@ function runAutonomousDiagnosis({
     estimatedPriceMin = 400;
     estimatedPriceMax = 1500;
   }
-  // 3. Engine Overheating / Smoke / Steam
-  else if (text.includes('smoke') || text.includes('steaming') || text.includes('overheat') || text.includes('hot') || text.includes('radiator') || text.includes('coolant') || text.includes('burning') || text.includes('smoking engine')) {
+  // 3. Engine Overheating / Smoke / Steam / Stall
+  else if (text.includes('smoke') || text.includes('steaming') || text.includes('overheat') || text.includes('radiator') || text.includes('coolant') || text.includes('burning') || text.includes('smoking engine')) {
     diagnosis = 'Severe Engine Overheating & Coolant Radiator Boilover';
     responderType = 'general_mechanic';
     baseRisk = 65;
@@ -163,8 +174,8 @@ function runAutonomousDiagnosis({
     estimatedPriceMin = 1500;
     estimatedPriceMax = 5000;
   }
-  // 5. Transmission / Axle / Tow needed
-  else if (text.includes('tow') || text.includes('stuck') || text.includes('broken axle') || text.includes('gear') || text.includes('transmission') || text.includes('clutch')) {
+  // 5. Transmission / Axle / Tow needed / Stalled on highway
+  else if (text.includes('tow') || text.includes('stuck') || text.includes('broken axle') || text.includes('gear') || text.includes('transmission') || text.includes('clutch') || text.includes('stall')) {
     diagnosis = 'Drivetrain Breakdown / Transmission Seizure';
     responderType = 'tow_truck';
     baseRisk = 55;
@@ -180,6 +191,15 @@ function runAutonomousDiagnosis({
     safetyAdvisory = 'Coast vehicle completely off the driving lane. Switch on hazard lights. A mobile fuel can service is being coordinated.';
     estimatedPriceMin = 300;
     estimatedPriceMax = 700;
+  }
+  // 7. General engine issue
+  else if (text.includes('engine')) {
+    diagnosis = 'Engine Mechanical Failure / Critical Fault';
+    responderType = 'general_mechanic';
+    baseRisk = 60;
+    safetyAdvisory = 'Turn off vehicle immediately. Avoid repeated crank attempts to prevent permanent cylinder block damage.';
+    estimatedPriceMin = 750;
+    estimatedPriceMax = 2200;
   }
 
   // Contextual Risk Calculation
@@ -224,7 +244,7 @@ export async function executeAgenticReplanning({
 
   if (aiClient) {
     try {
-      const response = await aiClient.models.generateContent({
+      const response = await withTimeout(aiClient.models.generateContent({
         model: fastModel,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
@@ -243,7 +263,7 @@ export async function executeAgenticReplanning({
             required: ['replanSummary', 'newResponderType', 'destinationFacility', 'estimatedPriceMin', 'estimatedPriceMax', 'safetyAdvisory']
           }
         }
-      });
+      }), 3500);
       if (response && response.text) {
         return JSON.parse(response.text);
       }
