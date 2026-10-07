@@ -41,7 +41,7 @@ export default function RescueTracker({
   initialDistance = 2.4,
   status = 'dispatched'
 }) {
-  const envGoogleKey = localStorage.getItem('resq_google_maps_key') || import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  const envGoogleKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || localStorage.getItem('resq_google_maps_key') || '';
   const [googleKey, setGoogleKey] = useState(envGoogleKey);
   const [mapEngine, setMapEngine] = useState(() => (envGoogleKey ? 'google' : 'leaflet'));
   const [currentRespPos, setCurrentRespPos] = useState([responderLat, responderLng]);

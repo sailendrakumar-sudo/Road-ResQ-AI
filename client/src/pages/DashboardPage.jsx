@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   // Google Maps Key & Provider Selection
-  const envKey = localStorage.getItem('resq_google_maps_key') || import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  const envKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || localStorage.getItem('resq_google_maps_key') || '';
   const [googleKey, setGoogleKey] = useState(envKey);
   const [mapEngine, setMapEngine] = useState(() => (envKey ? 'google' : 'leaflet'));
   const [showKeyModal, setShowKeyModal] = useState(false);
