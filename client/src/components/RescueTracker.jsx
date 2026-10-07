@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, Clock, ShieldCheck, MapPin } from 'lucide-react';
+import { Navigation, Clock, ShieldCheck, MapPin, ExternalLink, Key, Layers } from 'lucide-react';
+import GoogleMapComponent from './GoogleMapComponent';
 
-// Custom Map center updater
+// Custom Map center updater for Leaflet
 function MapRecenter({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -14,7 +15,7 @@ function MapRecenter({ center }) {
   return null;
 }
 
-// Custom Leaflet Icons using SVGs
+// Custom Leaflet Icons
 const travelerIcon = L.divIcon({
   className: 'custom-user-marker',
   html: `<div style="background-color: #EF4444; width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px rgba(239,68,68,0.8); animation: pulse 1.5s infinite;"></div>`,
@@ -40,9 +41,13 @@ export default function RescueTracker({
   initialDistance = 2.4,
   status = 'dispatched'
 }) {
+  const envGoogleKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  const [googleKey, setGoogleKey] = useState(envGoogleKey);
+  const [mapEngine, setMapEngine] = useState(() => (envGoogleKey ? 'google' : 'leaflet'));
   const [currentRespPos, setCurrentRespPos] = useState([responderLat, responderLng]);
   const [eta, setEta] = useState(initialEta);
   const [distance, setDistance] = useState(initialDistance);
+  const [showKeyInput, setShowKeyInput] = useState(false);
 
   // Simulate progressive responder movement along route
   useEffect(() => {
@@ -50,7 +55,6 @@ export default function RescueTracker({
 
     const interval = setInterval(() => {
       setCurrentRespPos(([prevLat, prevLng]) => {
-        // Step 10% closer to userLat, userLng
         const stepLat = prevLat + (userLat - prevLat) * 0.08;
         const stepLng = prevLng + (userLng - prevLng) * 0.08;
 
@@ -67,83 +71,178 @@ export default function RescueTracker({
   const centerLat = (userLat + currentRespPos[0]) / 2;
   const centerLng = (userLng + currentRespPos[1]) / 2;
 
+  const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${responderLat},${responderLng}&destination=${userLat},${userLng}&travelmode=driving`;
+
   return (
-    <div className="relative w-full h-[360px] sm:h-[420px] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
-      {/* Live Map */}
-      <MapContainer
-        center={[centerLat, centerLng]}
-        zoom={14}
-        scrollWheelZoom={false}
-        className="w-full h-full"
-      >
-        <MapRecenter center={[centerLat, centerLng]} />
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+    <div className="relative w-full h-[380px] sm:h-[440px] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
+      {/* Map Engine View */}
+      {mapEngine === 'google' && googleKey ? (
+        <GoogleMapComponent
+          apiKey={googleKey}
+          userLat={userLat}
+          userLng={userLng}
+          responderLat={responderLat}
+          responderLng={responderLng}
+          responderName={responderName}
+          specialization={specialization}
+          status={status}
         />
+      ) : (
+        <MapContainer
+          center={[centerLat, centerLng]}
+          zoom={14}
+          scrollWheelZoom={false}
+          className="w-full h-full"
+        >
+          <MapRecenter center={[centerLat, centerLng]} />
+          <TileLayer
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          />
 
-        {/* User Pin */}
-        <Marker position={[userLat, userLng]} icon={travelerIcon}>
-          <Popup>
-            <div className="text-slate-900 font-bold text-xs p-1">
-              📍 Your Emergency Location
-            </div>
-          </Popup>
-        </Marker>
+          <Marker position={[userLat, userLng]} icon={travelerIcon}>
+            <Popup>
+              <div className="text-slate-900 font-bold text-xs p-1">
+                📍 Your Emergency Location
+              </div>
+            </Popup>
+          </Marker>
 
-        {/* Responder Pin */}
-        <Marker position={currentRespPos} icon={responderIcon}>
-          <Popup>
-            <div className="text-slate-900 font-bold text-xs p-1">
-              🛠️ {responderName} ({specialization})
-            </div>
-          </Popup>
-        </Marker>
+          <Marker position={currentRespPos} icon={responderIcon}>
+            <Popup>
+              <div className="text-slate-900 font-bold text-xs p-1">
+                🛠️ {responderName} ({specialization})
+              </div>
+            </Popup>
+          </Marker>
 
-        {/* Polyline connection */}
-        <Polyline
-          positions={[
-            [userLat, userLng],
-            currentRespPos
-          ]}
-          color="#3B82F6"
-          weight={4}
-          dashArray="8, 8"
-          opacity={0.8}
-        />
-      </MapContainer>
+          <Polyline
+            positions={[[userLat, userLng], currentRespPos]}
+            color="#3B82F6"
+            weight={4}
+            dashArray="8, 8"
+            opacity={0.8}
+          />
+        </MapContainer>
+      )}
 
-      {/* Floating Live Telemetry Overlay */}
+      {/* Floating Top Bar: Engine Switcher & Open in Google Maps */}
       <div className="absolute top-4 left-4 right-4 z-[1000] flex flex-wrap gap-2 justify-between items-center pointer-events-none">
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 pointer-events-auto">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
-            <Navigation className="w-4 h-4 animate-spin text-blue-400" />
+        {/* Left: Live ETA / Distance */}
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3 pointer-events-auto">
+          <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+            <Navigation className="w-3.5 h-3.5 animate-spin text-blue-400" />
           </div>
           <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400">Live Navigation</div>
-            <div className="text-sm font-black text-white">
-              {responderName} is En Route
+            <div className="text-[10px] uppercase font-bold text-slate-400">En Route</div>
+            <div className="text-xs font-black text-white">
+              {responderName}
             </div>
+          </div>
+          <div className="h-5 w-px bg-slate-700" />
+          <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {Math.ceil(eta)}m
+          </div>
+          <div className="text-xs font-bold text-blue-400">
+            {distance}km
           </div>
         </div>
 
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-4 pointer-events-auto">
-          <div className="text-center">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Live ETA</div>
-            <div className="text-sm font-black text-emerald-400 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {Math.ceil(eta)} mins
-            </div>
+        {/* Right: Map Provider Controls */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Engine Selector */}
+          <div className="flex items-center bg-slate-900/90 backdrop-blur-md border border-slate-700 p-1 rounded-2xl">
+            <button
+              onClick={() => {
+                if (!googleKey) {
+                  setShowKeyInput(true);
+                } else {
+                  setMapEngine('google');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                mapEngine === 'google'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <img
+                src="https://www.gstatic.com/images/branding/product/1x/maps_64dp.png"
+                alt="Google Maps"
+                className="w-3.5 h-3.5 object-contain"
+              />
+              Google Maps
+            </button>
+            <button
+              onClick={() => setMapEngine('leaflet')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                mapEngine === 'leaflet'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Radar / OSM
+            </button>
           </div>
-          <div className="h-6 w-px bg-slate-700" />
-          <div className="text-center">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Distance</div>
-            <div className="text-sm font-black text-blue-400">
-              {distance} km
+
+          {/* Open Google Maps Live Navigation Link */}
+          <a
+            href={googleMapsDirectionsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="p-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-800 transition-all shadow-xl"
+            title="Open in Google Maps Navigation"
+          >
+            <ExternalLink className="w-4 h-4 text-emerald-400" />
+          </a>
+        </div>
+      </div>
+
+      {/* Floating Key Modal / Prompt if Google Maps clicked without key */}
+      {showKeyInput && (
+        <div className="absolute inset-0 z-[1100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl text-white space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <Key className="w-4 h-4 text-amber-400" />
+              Connect Google Maps API Key
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter your Google Maps JavaScript API key (or save in <code className="text-amber-300">client/.env</code> as <code className="text-white">VITE_GOOGLE_MAPS_KEY</code>).
+            </p>
+            <input
+              type="text"
+              value={googleKey}
+              onChange={(e) => setGoogleKey(e.target.value)}
+              placeholder="AIzaSy..."
+              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (googleKey) {
+                    setMapEngine('google');
+                    setShowKeyInput(false);
+                  }
+                }}
+                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-xs"
+              >
+                Apply & Activate
+              </button>
+              <button
+                onClick={() => {
+                  setShowKeyInput(false);
+                  setMapEngine('leaflet');
+                }}
+                className="py-2 px-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white text-xs"
+              >
+                Use Radar Map
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
